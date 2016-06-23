@@ -8,13 +8,16 @@
                                   [figwheel-sidecar "0.5.0-SNAPSHOT" :scope "test"]
                                   [devcards "0.2.1-7"]
                                   [reloaded.repl "0.2.1"]]}}
+  :repositories {"my.datomic.com" {:url "https://my.datomic.com/repo"
+                                   :creds :gpg}}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/clojurescript "1.7.228"]
                  [org.omcljs/om "1.0.0-alpha34"]
                  [org.clojure/core.async "0.2.374"]
-                 [com.datomic/datomic-free "0.9.5372"]
+                 [com.datomic/datomic-pro "0.9.5359"]
                  [org.clojars.jds02006/kubernetes-api "0.1.1-SNAPSHOT"]
                  [cljs-http "0.1.41"]
+                 [org.apache.httpcomponents/httpclient "4.5.1"]
                  [environ "1.0.3"]
                  [oauth-clj "0.1.15"]
                  [http-kit "2.1.18"]

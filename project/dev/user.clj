@@ -16,6 +16,7 @@
             [figwheel-sidecar.system :as fs]
             [kube.core :as k]
             [kube.core-test]
+            [scylla.datomic :as datomic]
             [scylla.server]
             [scylla.sente]))
 
@@ -64,8 +65,9 @@
   (component/system-map
    :server   (component/using
               (scylla.server/new-server {:port 8080})
-              [:sente])
-   :sente (scylla.sente/sente)
+              [:sente :datomic])
+   :sente    (scylla.sente/sente)
+   :datomic  (scylla.datomic/datomic {:url "datomic:dev://localhost:4334/scylla"})
    :figwheel (figwheel figwheel-config)))
 
 (reloaded.repl/set-init! dev-system)

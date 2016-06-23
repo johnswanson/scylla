@@ -10,6 +10,7 @@
             [cheshire.core :as json]
             [environ.core :refer [env]]
             [scylla.github :as github]
+            [scylla.datomic :as datomic]
             [om.next.server :as om]))
 
 (defn response [body & [status]]
@@ -19,19 +20,26 @@
 
 (defn persist! [& args] nil)
 
+(defn logout [{:keys [user] :as req}]
+  {:status 307
+   :headers {"Location" "/index.html"}
+   :body ""
+   :session nil})
+
 (defn callback [{{:keys [code]}       :params
                  {:keys [uid]}        :session
                  {:keys [chsk-send!]} :sente
                  :as req}]
-  (log/debugf "code: %s" req)
-  (let [user (github/user code)]
+  (let [access-token (github/access-token code)
+        user         (github/user access-token)]
     {:status  307
      :headers {"Location" "/index.html"}
      :body    ""
-     :session (assoc (:session req) :user user)}))
+     :session (assoc (:session req) :uid (:login user))}))
 
 (defn my-routes [post-fn get-fn]
   ["/" [["callback" callback]
+        ["logout" logout]
         ["chsk" {:get get-fn :post post-fn}]
         ["session" #(assoc-in (response (:session %))
                               [:headers "Content-Type"]
@@ -45,20 +53,29 @@
 
 (defn wrap-user [handler]
   (fn [req]
-    (handler req)))
+    (if-let [uid (get-in req [:session :uid])]
+      (handler (assoc req :user (datomic/get-user (:db-conn req) uid)))
+      (handler req))))
+
+(defn wrap-datomic [handler datomic]
+  (fn [req]
+    (handler (assoc req :db-conn (:connection datomic)))))
 
 (defrecord ServerComponent [config]
   component/Lifecycle
   (start [component]
-    (let [{:keys [sente server-routes]} (:sente component)
+    (let [datomic (:datomic component)
+          {:keys [sente server-routes]} (:sente component)
           {:keys [ajax-post-fn ajax-get-or-ws-handshake-fn]} server-routes]
       (assoc component :server (org.httpkit.server/run-server
                                 (-> (my-routes ajax-post-fn
                                                ajax-get-or-ws-handshake-fn)
                                     (bidi.ring/make-handler)
+                                    (wrap-user)
+                                    (wrap-datomic datomic)
                                     (wrap-defaults site-defaults)
                                     (wrap-anti-forgery)
-                                    (wrap-sente sente)) 
+                                    (wrap-sente sente))
                                 config))))
   (stop [component]
     (when-let [server (:server component)]
@@ -81,20 +98,16 @@
 (defmulti mutatef (fn [_ x _] x))
 
 (defmethod readf :default
-  [{:keys [query ring-req] :as r} _ _]
-  (log/debugf "READ: %s" r)
-  {:value :not-found})
+  [_ k _]
+  {:value {:error {:no-handler-for-read-key k}}})
 
 (defmethod readf :user/username
   [{:keys [user]} _ _]
-  {:value (get user :login)})
-
-(defmethod readf :user/location [{:keys [user]} _ _] {:value (:location user)})
-(defmethod readf :user/followers [{:keys [user]} _ _] {:value (:followers user)})
+  {:value (get user :user/username)})
 
 (defmethod readf :app/user
   [{:keys [parser query ring-req] :as env} _ _]
-  (if-let [user (get-in ring-req [:session :user])]
+  (if-let [[_ user] (find ring-req :user)]
     {:value (parser (assoc env :user user) query)}
     {:value :not-found}))
 
@@ -103,9 +116,9 @@
   {:value github/auth-url})
 
 (defmethod mutatef :default
-  [& args]
-  (log/debugf "MUTATE: %s" args)
-  {:action identity})
+  [_ k _]
+  (log/debugf "mutation received, not handled: %s" k)
+  {:action {:error {:no-handler-for-mutate-key k}}})
 
 (defmethod event-msg-handler :app/remote
   [{:as ev-msg :keys [event id ?data ring-req ?reply-fn send-fn]}]

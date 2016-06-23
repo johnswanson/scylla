@@ -13,7 +13,7 @@
    {:method :get
     :url "https://api.github.com/user"}))
 
-(defn access-token [code]
+(defn- access-token- [code]
   (let [t (github/oauth-access-token
            github-client-id
            github-client-secret
@@ -22,13 +22,15 @@
     (log/debugf "access-token (%s): %s" (pr-str code) (pr-str t))
     t))
 
-(defn client [code]
-  (let [{:keys [access-token]} (access-token code)]
-    (when access-token
-      (github/oauth-client access-token))))
+(defn access-token [code]
+  (let [{:keys [access-token]} (access-token- code)]
+    access-token))
 
-(defn user [code]
-  (when-let [client (client code)]
+(defn client [access-token]
+  (github/oauth-client access-token))
+
+(defn user [access-token]
+  (when-let [client (client access-token)]
     (get-user client)))
 
 (def auth-url (github/oauth-authorization-url github-client-id callback-url))

@@ -17,8 +17,10 @@
 
 (defn chsk-send! [& args] (apply (:chsk-send! sente) args))
 
+(def send-chan (chan))
+
 (defn send-query [{:keys [remote]} cb]
-  (chsk-send! [:app/remote remote] 5000 cb))
+  (put! send-chan [remote cb]))
 
 (defui GithubSignup
   static om/IQuery
@@ -38,7 +40,7 @@
 (defui App
   static om/IQuery
   (query [this]
-    [{:app/user [:user/username :user/location :user/followers]}
+    [{:app/user [:user/username]}
      :app/auth-url])
   Object
   (render [this]
@@ -46,9 +48,12 @@
       (dom/div nil
         (when (= user :not-found)
           (github-signup (om/props this)))
+        (when (:user/username user)
+          (dom/a #js {:href "/logout"}
+                 "Logout"))
         (dom/pre nil (pr-str (om/props this)))))))
 
-(def reconciler
+(defonce reconciler
   (om/reconciler
    {:state     (atom {})
     :normalize true
@@ -56,16 +61,21 @@
     :remotes   [:remote]
     :parser    (om/parser {:read parser/read
                            :mutate parser/mutate})}))
+(om/add-root!
+ reconciler
+ App
+ (gdom/getElement "app"))
 
 ;; sente event handlers (no server-side push handling yet)
 
 (defmulti event-msg-handler :id)
 (defmethod event-msg-handler :chsk/state [{:keys [?data] :as ev}]
   (when (:first-open? (second ?data))
-    (om/add-root!
-     reconciler
-     App
-     (gdom/getElement "app"))))
+    (go-loop []
+      (when-let [v (<! send-chan)]
+        (let [[remote cb] v]
+          (chsk-send! [:app/remote remote] 5000 cb))))))
+
 (defmethod event-msg-handler :default [ev-msg] :nothing)
 
 (defonce -router (atom nil))
