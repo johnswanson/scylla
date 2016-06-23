@@ -5,3 +5,8 @@ services:
     volumes:
       - ./datomic/data:/opt/datomic-pro-0.9.5359/data
     network_mode: "host"
+  datomic-console:
+    build:
+      context: ./datomic
+      dockerfile: Dockerfile.console
+    network_mode: "host"

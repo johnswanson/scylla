@@ -1,0 +1,3 @@
+FROM pointslope/datomic-console:0.9.5344
+MAINTAINER John Swanson "john.d.swanson@gmail.com"
+CMD ["dev", "datomic:dev://localhost:4334/"]
