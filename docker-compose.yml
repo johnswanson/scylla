@@ -1,0 +1,7 @@
+version: '2'
+services:
+  datomic:
+    build: ./datomic
+    volumes:
+      - ./datomic/data:/opt/datomic-pro-0.9.5359/data
+    network_mode: "host"
