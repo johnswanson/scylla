@@ -17,3 +17,4 @@
 /datomic/.credentials
 /datomic/config/
 /datomic/data/
+secret.env

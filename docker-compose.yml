@@ -4,6 +4,8 @@ services:
     build: .
     volumes:
       - ./project:/scylla
+    env_file:
+      - ./secret.env
     ports:
       - "8080:8080"
       - "3449:3449"
