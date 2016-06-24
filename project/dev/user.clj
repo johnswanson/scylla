@@ -67,7 +67,7 @@
               (scylla.server/new-server {:port 8080})
               [:sente :datomic])
    :sente    (scylla.sente/sente)
-   :datomic  (scylla.datomic/datomic {:url "datomic:dev://localhost:4334/scylla"})
+   :datomic  (scylla.datomic/datomic {:url "datomic:dev://datomic:4334/scylla"})
    :figwheel (figwheel figwheel-config)))
 
 (reloaded.repl/set-init! dev-system)

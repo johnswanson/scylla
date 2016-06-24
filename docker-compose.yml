@@ -1,12 +1,24 @@
 version: '2'
 services:
+  app:
+    build: .
+    volumes:
+      - ./project:/scylla
+    ports:
+      - "8080:8080"
+      - "3449:3449"
+      - "4096:4096"
   datomic:
     build: ./datomic
+    ports:
+      - "4336:4336"
+      - "4335:4335"
+      - "4334:4334"
     volumes:
       - ./datomic/data:/opt/datomic-pro-0.9.5359/data
-    network_mode: "host"
   datomic-console:
     build:
       context: ./datomic
       dockerfile: Dockerfile.console
-    network_mode: "host"
+    ports:
+      - "9000:9000"
