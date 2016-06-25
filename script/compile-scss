@@ -1,0 +1,13 @@
+#!/bin/bash
+
+SOURCE_DIR=./project/resources/scss
+DEST_DIR=./project/resources/public/css
+
+SOURCE_FILE=$SOURCE_DIR/app.scss
+DEST_FILE=$DEST_DIR/app.css
+
+inotifywait -m -e close_write,moved_to,create $SOURCE_DIR \
+		| while read -r directory filename event;
+do
+		sassc -m -I $SOURCE_DIR -t nested $SOURCE_FILE $DEST_FILE
+done

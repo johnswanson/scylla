@@ -18,3 +18,4 @@
 /datomic/config/
 /datomic/data/
 secret.env
+project/resources/public/css/
