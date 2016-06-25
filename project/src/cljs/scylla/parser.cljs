@@ -22,7 +22,8 @@
   (let [st @state]
     (pr st)
     (if-let [[_ value] (find st key)]
-      {:value (mapv #(get-in st %) value)}
+      {:value (mapv #(get-in st %) value)
+       :remote true}
       {:remote true})))
 
 (defmethod read :app/active-build
