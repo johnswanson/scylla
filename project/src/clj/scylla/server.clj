@@ -132,12 +132,13 @@
   [{:keys [ring-req]} _ _]
   {:value {:keys [:app/builds]}
    :action (fn []
-             @(d/transact (:db-conn ring-req)
-                          [{:db/id       (get-in ring-req [:user :db/id])
-                            :user/builds #db/id[:db.part/user -1]}
-                           {:db/id      #db/id[:db.part/user -1]
-                            :build/name ""}])
-             nil)})
+             (-> (d/transact (:db-conn ring-req)
+                             [{:db/id       (get-in ring-req [:user :db/id])
+                               :user/builds #db/id[:db.part/user -1]}
+                              {:db/id      #db/id[:db.part/user -1]
+                               :build/name ""}])
+                 (deref)
+                 (dissoc :db-before :db-after :tx-data)))})
 
 (defmethod mutatef 'user/update-build
   [{:keys [ring-req]} _ _]
@@ -151,13 +152,7 @@
   [{:as ev-msg :keys [event id ?data ring-req ?reply-fn send-fn]}]
   (let [data ((om/parser {:read readf :mutate mutatef})
               {:ring-req ring-req}
-              ?data)
-        data' (walk/postwalk (fn [x]
-                               (let [out (if (and (sequential? x) (= (first x) :result))
-                                           [(first x) (dissoc (second x) :db-before :db-after :tx-data)]
-                                           x)]
-                                 out))
-                             data)]
+              ?data)]
     (when ?reply-fn
-      (?reply-fn data'))))
+      (?reply-fn data))))
 
