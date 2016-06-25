@@ -31,7 +31,7 @@
       "Welcome to Scylla")
     (dom/a #js {:href url
                 :className "sup-button"}
-           (dom/i #js {:className "fa fa-github-square"})
+           (dom/i #js {:className "sup-github-icon fa fa-github-square"})
            "Sign In With Github")))
 
 (defui BuildSpec
