@@ -4,25 +4,16 @@
             [com.stuartsierra.component :as component]
             [taoensso.timbre :as log]))
 
-(defrecord DatomicComponent [config]
-  component/Lifecycle
-  (start [component]
-    (d/create-database (:url config))
-    (let [conn (d/connect (:url config))]
-      (assoc component :connection conn)))
-  (stop [component]
-    (dissoc component :connection)))
-
-(defn datomic [config]
-  (map->DatomicComponent
-   {:config config}))
-
 (def schema
   [(s/schema user
              (s/fields
               [username :string :unique-identity]
               [access-token :string]
-              [build-specs :ref :many]))
+              [builds :ref :many]))
+   (s/schema build
+             (s/fields
+              [name :string]
+              [spec :ref]))
    (s/schema build-spec
              (s/fields
               [image :string]
@@ -51,3 +42,33 @@
 (defn get-user [conn username]
   (d/pull (d/db conn) '[*] [:user/username username]))
 
+(defn builds
+  ([conn user] (builds conn user nil))
+  ([conn user selector] (builds conn user selector nil))
+  ([conn user selector {:keys [filter as-of]}]
+   (let [db (cond-> (d/db conn)
+              as-of (d/as-of as-of))
+         q '[:find [(pull ?eid selector) ...]
+             :in $ ?uid selector
+             :where
+             [?eid :build/name]
+             [?uid :user/builds ?eid]]]
+     (d/q q db (:db/id user) (or selector '[*])))))
+
+(defrecord DatomicComponent [config]
+  component/Lifecycle
+  (start [component]
+    (let [{:keys [url wipe?]} config]
+      (d/create-database url)
+      (let [conn (d/connect url)]
+        (when wipe?
+          (d/transact conn init-tx))
+        (assoc component :connection conn))))
+  (stop [component]
+    (when (:wipe? config)
+      (d/delete-database (:url config)))
+    (dissoc component :connection)))
+
+(defn datomic [config]
+  (map->DatomicComponent
+   {:config config}))

@@ -5,6 +5,7 @@
 
 (def github-client-id (env :github-client-id))
 (def github-client-secret (env :github-client-secret))
+(def github-callback-url (env :github-callback-url))
 
 (def callback-url "http://localhost:8080/callback")
 

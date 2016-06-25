@@ -5,7 +5,10 @@
             [goog.dom :as gdom]
             [om.next :as om :refer-macros [defui]]
             [om.dom :as dom]
-            [scylla.parser :as parser]))
+            [scylla.parser :as parser]
+            [taoensso.timbre :as log :include-macros true]))
+
+(enable-console-print!)
 
 (defonce sente
   (let [{:keys [chsk ch-recv send-fn state]}
@@ -19,48 +22,112 @@
 
 (def send-chan (chan))
 
-(defn send-query [{:keys [remote]} cb]
+(defn send-query [{:keys [remote] :as f} cb]
   (put! send-chan [remote cb]))
 
-(defui GithubSignup
+(defn signup-button [url]
+  (dom/a #js {:href url}
+         (dom/i #js {:className "fa fa-github-square"})
+         "Signup/Login"))
+
+(defui BuildSpec
   static om/IQuery
   (query [this]
-    [:app/auth-url])
+    [:build-spec/image :build-spec/command :build-spec/env]))
+
+(defui BuildEditor
+  static om/Ident
+  (ident [this props]
+    [:build/by-id (:db/id props)])
+  static om/IQuery
+  (query [this]
+    [:db/id :build/name {:build/specs (om/get-query BuildSpec)}])
   Object
   (render [this]
-    (dom/div nil
-      (dom/a
-       #js {:href (:app/auth-url (om/props this))}
-       (dom/i #js {:className   "fa fa-github-square"
-                   :aria-hidden true})
-       "Sign In with GitHub"))))
+    (let [{:keys [db/id build/name]} (om/props this)]
+      (dom/div nil
+        id
 
-(def github-signup (om/factory GithubSignup))
+        (dom/input #js {:type        "text"
+                        :placeholder "Name"
+                        :onKeyUp     #(om/transact! this `[(build/edit {:path  [:build/by-id ~id :build/name]
+                                                                        :value ~(.-value (.-target %))})])})))))
+
+(def build-editor (om/factory BuildEditor))
+
+(defui BuildListItem
+  static om/Ident
+  (ident [this props]
+    [:build/by-id (:db/id props)])
+  static om/IQuery
+  (query [this]
+    [:db/id :build/name {:build/specs (om/get-query BuildSpec)}])
+  Object
+  (render [this]
+    (let [{:keys [db/id build/name build/specs]} (om/props this)]
+      (dom/div #js {:onClick #(om/transact! this `[(build/activate {:build [:build/by-id ~id]})
+                                                   :app/active-build])}
+        "Build"
+        name))))
+
+(def build-list-item (om/factory BuildListItem))
+
+(defn build-list [builds]
+  (for [build builds]
+    (build-list-item build)))
+
+(defn logout-button []
+  (dom/div nil (dom/a #js {:href "/logout"} "Logout")))
+
+(defn create-build-button [cb]
+  (dom/div #js {:onClick cb}
+    (dom/i #js {:className "fa fa-plus"})
+    "Create Build"))
+
+(defui LoggedInApp
+  Object
+  (render [this]
+    (let [{:keys [app/builds app/active-build]} (om/props this)
+          {:keys [add-build]}  (om/get-computed this)]
+      (dom/div nil
+        (logout-button)
+        (create-build-button add-build)
+        (build-list builds)
+        (when active-build
+          (build-editor active-build))))))
+
+(def logged-in-app (om/factory LoggedInApp))
 
 (defui App
   static om/IQuery
   (query [this]
     [{:app/user [:user/username]}
+     {:app/builds (om/get-query BuildListItem)}
+     {:app/active-build (om/get-query BuildEditor)}
      :app/auth-url])
   Object
   (render [this]
-    (let [{:keys [app/user app/auth-url]} (om/props this)]
+    (let [{:keys [app/user app/auth-url]} (om/props this)
+          add-build #(om/transact! this `[(build/create)
+                                          :app/builds])]
       (dom/div nil
-        (when (= user :not-found)
-          (github-signup (om/props this)))
-        (when (:user/username user)
-          (dom/a #js {:href "/logout"}
-                 "Logout"))
-        (dom/pre nil (pr-str (om/props this)))))))
+        (when-not user
+          (signup-button auth-url))
+        (when user
+          (logged-in-app (om/computed (om/props this)
+                                      {:add-build add-build})))
+        (dom/pre nil
+                 (pr-str (om/props this)))))))
+
+(def state (atom {}))
 
 (defonce reconciler
   (om/reconciler
-   {:state     (atom {})
+   {:state     state
     :normalize true
     :send      send-query
-    :remotes   [:remote]
-    :parser    (om/parser {:read parser/read
-                           :mutate parser/mutate})}))
+    :parser    (om/parser {:read parser/read-wrapper
+                           :mutate parser/mutate-wrapper})}))
 (om/add-root!
  reconciler
  App
@@ -74,7 +141,8 @@
     (go-loop []
       (when-let [v (<! send-chan)]
         (let [[remote cb] v]
-          (chsk-send! [:app/remote remote] 5000 cb))))))
+          (chsk-send! [:app/remote remote] 5000 cb))
+        (recur)))))
 
 (defmethod event-msg-handler :default [ev-msg] :nothing)
 

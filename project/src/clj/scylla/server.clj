@@ -1,5 +1,6 @@
 (ns scylla.server
-  (:require [org.httpkit.server]
+  (:require [clojure.walk :as walk]
+            [org.httpkit.server]
             [bidi.ring :refer [resources-maybe]]
             [bidi.bidi :as bidi]
             [com.stuartsierra.component :as component]
@@ -11,6 +12,7 @@
             [environ.core :refer [env]]
             [scylla.github :as github]
             [scylla.datomic :as datomic]
+            [datomic.api :as d]
             [om.next.server :as om]))
 
 (defn response [body & [status]]
@@ -32,6 +34,7 @@
                  :as req}]
   (let [access-token (github/access-token code)
         user         (github/user access-token)]
+    (datomic/add-or-update-user! (:db-conn req) user access-token)
     {:status  307
      :headers {"Location" "/index.html"}
      :body    ""
@@ -105,11 +108,17 @@
   [{:keys [user]} _ _]
   {:value (get user :user/username)})
 
+(defmethod readf :app/builds
+  [{{:keys [user db-conn]} :ring-req} _ _]
+  {:value (if user
+            (datomic/builds db-conn user)
+            nil)})
+
 (defmethod readf :app/user
   [{:keys [parser query ring-req] :as env} _ _]
   (if-let [[_ user] (find ring-req :user)]
     {:value (parser (assoc env :user user) query)}
-    {:value :not-found}))
+    {:value nil}))
 
 (defmethod readf :app/auth-url
   [_ _ _]
@@ -117,15 +126,38 @@
 
 (defmethod mutatef :default
   [_ k _]
-  (log/debugf "mutation received, not handled: %s" k)
   {:action {:error {:no-handler-for-mutate-key k}}})
+
+(defmethod mutatef 'build/create
+  [{:keys [ring-req]} _ _]
+  {:value {:keys [:app/builds]}
+   :action (fn []
+             @(d/transact (:db-conn ring-req)
+                          [{:db/id       (get-in ring-req [:user :db/id])
+                            :user/builds #db/id[:db.part/user -1]}
+                           {:db/id      #db/id[:db.part/user -1]
+                            :build/name ""}])
+             nil)})
+
+(defmethod mutatef 'user/update-build
+  [{:keys [ring-req]} _ _]
+  (log/debugf "update-build %s" ring-req))
+
+(defmethod mutatef 'user/delete-build
+  [{:keys [ring-req]} _ _]
+  (log/debugf "delete-build %s" ring-req))
 
 (defmethod event-msg-handler :app/remote
   [{:as ev-msg :keys [event id ?data ring-req ?reply-fn send-fn]}]
   (let [data ((om/parser {:read readf :mutate mutatef})
               {:ring-req ring-req}
-              ?data)]
+              ?data)
+        data' (walk/postwalk (fn [x]
+                               (let [out (if (and (sequential? x) (= (first x) :result))
+                                           [(first x) (dissoc (second x) :db-before :db-after :tx-data)]
+                                           x)]
+                                 out))
+                             data)]
     (when ?reply-fn
-      (?reply-fn data))))
-
+      (?reply-fn data'))))
 
