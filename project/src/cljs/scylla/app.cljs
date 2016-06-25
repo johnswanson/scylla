@@ -25,10 +25,14 @@
 (defn send-query [{:keys [remote] :as f} cb]
   (put! send-chan [remote cb]))
 
-(defn signup-button [url]
-  (dom/a #js {:href url}
-         (dom/i #js {:className "fa fa-github-square"})
-         "Signup/Login"))
+(defn logged-out-app [url]
+  (dom/div #js {:className "sup-background"}
+    (dom/h1 #js {:className "sup-title"}
+      "Welcome to Scylla")
+    (dom/a #js {:href url
+                :className "sup-button"}
+           (dom/i #js {:className "fa fa-github-square"})
+           "Sign In With Github")))
 
 (defui BuildSpec
   static om/IQuery
@@ -111,13 +115,10 @@
           add-build #(om/transact! this `[(build/create)
                                           :app/builds])]
       (dom/div nil
-        (when-not user
-          (signup-button auth-url))
-        (when user
+        (if user
           (logged-in-app (om/computed (om/props this)
-                                      {:add-build add-build})))
-        (dom/pre nil
-                 (pr-str (om/props this)))))))
+                                      {:add-build add-build}))
+          (logged-out-app auth-url))))))
 
 (def state (atom {}))
 
