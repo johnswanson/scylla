@@ -55,6 +55,7 @@
         (dom/input #js {:type        "text"
                         :placeholder "Name"
                         :onKeyUp     #(om/transact! this `[(build/edit {:path  [:build/by-id ~id :build/name]
+                                                                        :key   ~(.-key %)
                                                                         :value ~(.-value (.-target %))})])})))))
 
 (def build-editor (om/factory BuildEditor))

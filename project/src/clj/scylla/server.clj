@@ -148,6 +148,17 @@
   [{:keys [ring-req]} _ _]
   (log/debugf "delete-build %s" ring-req))
 
+(defmethod mutatef 'build/edit
+  [{:keys [ring-req]} _ {:keys [path value]}]
+  (let [[_ id property] path]
+    {:action (fn []
+               (-> (d/transact (:db-conn ring-req)
+                               [{:db/id   id
+                                 property value}])
+                   (deref)
+                   (dissoc :db-before :db-after :tx-data)))
+     :value {:keys [path]}}))
+
 (defmethod event-msg-handler :app/remote
   [{:as ev-msg :keys [event id ?data ring-req ?reply-fn send-fn]}]
   (let [data ((om/parser {:read readf :mutate mutatef})

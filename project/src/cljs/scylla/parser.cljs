@@ -39,11 +39,10 @@
    :remote true})
 
 (defmethod mutate 'build/edit
-  [{:keys [state] :as env} key {:keys [path value]}]
+  [{:keys [state] :as env} k {:keys [path value key]}]
   {:value {:keys [:app/builds]}
-   :action #(do
-              (log/debugf "edit before: %s" @state)
-              (swap! state assoc-in path value))})
+   :remote (= key "Enter")
+   :action #(swap! state assoc-in path value)})
 
 (defmethod mutate 'build/activate
   [{:keys [state] :as env} key {:keys [build]}]
