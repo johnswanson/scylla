@@ -31,8 +31,8 @@
       "Welcome to Scylla")
     (dom/a #js {:href url
                 :className "sup-button"}
-           (dom/i #js {:className "sup-github-icon fa fa-github-square"})
-           "Sign In With Github")))
+      (dom/i #js {:className "sup-github-icon fa fa-github-square"})
+      "Sign In With Github")))
 
 (defui BuildSpec
   static om/IQuery
@@ -118,22 +118,22 @@
       (dom/div nil
         (if user
           (logged-in-app (om/computed (om/props this)
-                                      {:add-build add-build}))
+                           {:add-build add-build}))
           (logged-out-app auth-url))))))
 
 (def state (atom {}))
 
 (defonce reconciler
   (om/reconciler
-   {:state     state
-    :normalize true
-    :send      send-query
-    :parser    (om/parser {:read parser/read-wrapper
-                           :mutate parser/mutate-wrapper})}))
+    {:state     state
+     :normalize true
+     :send      send-query
+     :parser    (om/parser {:read parser/read-wrapper
+                            :mutate parser/mutate-wrapper})}))
 (om/add-root!
- reconciler
- App
- (gdom/getElement "app"))
+  reconciler
+  App
+  (gdom/getElement "app"))
 
 ;; sente event handlers (no server-side push handling yet)
 
@@ -153,7 +153,7 @@
 (defn start-router! []
   (stop-router!)
   (reset! -router (sente/start-client-chsk-router!
-                   (:ch-chsk sente) event-msg-handler)))
+                    (:ch-chsk sente) event-msg-handler)))
 
 (defn start! [] (start-router!))
 (defonce _start-once (start!))
