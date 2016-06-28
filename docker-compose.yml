@@ -1,5 +1,12 @@
 version: '2'
 services:
+  scss:
+    build:
+      context: .
+      dockerfile: Dockerfile.scss
+    volumes:
+      - ./project/resources/scss:/in
+      - ./project/resources/public/css:/out
   logspout:
     image: gliderlabs/logspout:latest
     volumes:
