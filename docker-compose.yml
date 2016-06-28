@@ -36,4 +36,4 @@ services:
       context: ./datomic
       dockerfile: Dockerfile.console
     ports:
-      - "9000:9000"
+      - "9001:9000"
