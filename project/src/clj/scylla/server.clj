@@ -140,24 +140,19 @@
                  (deref)
                  (dissoc :db-before :db-after :tx-data)))})
 
-(defmethod mutatef 'user/update-build
-  [{:keys [ring-req]} _ _]
-  (log/debugf "update-build %s" ring-req))
-
 (defmethod mutatef 'user/delete-build
   [{:keys [ring-req]} _ _]
   (log/debugf "delete-build %s" ring-req))
 
-(defmethod mutatef 'build/edit
-  [{:keys [ring-req]} _ {:keys [path value]}]
-  (let [[_ id property] path]
+(defmethod mutatef 'build/save
+  [{:keys [ring-req]} _ {:keys [build]}]
+  (let [{:keys [db/id] :as build} build]
     {:action (fn []
                (-> (d/transact (:db-conn ring-req)
-                               [{:db/id   id
-                                 property value}])
+                               [build])
                    (deref)
                    (dissoc :db-before :db-after :tx-data)))
-     :value {:keys [path]}}))
+     :value {:keys [[:build/by-id id]]}}))
 
 (defmethod event-msg-handler :app/remote
   [{:as ev-msg :keys [event id ?data ring-req ?reply-fn send-fn]}]

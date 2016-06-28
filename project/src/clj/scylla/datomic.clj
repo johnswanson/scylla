@@ -13,9 +13,6 @@
    (s/schema build
              (s/fields
               [name :string]
-              [spec :ref]))
-   (s/schema build-spec
-             (s/fields
               [image :string]
               [command :string]
               [env :string]))])

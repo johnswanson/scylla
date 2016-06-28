@@ -3,7 +3,8 @@
             [om.dom :as dom]
             [scylla.components.build-list :refer [build-list BuildListItem]]
             [scylla.components.build-editor :refer [build-editor BuildEditor]]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [taoensso.timbre :as log]))
 
 (defn flex-container [& {:keys [left right]}]
   (dom/div #js {:className "uv-flex-container"}
@@ -36,14 +37,16 @@
   (dom/div nil
     "Menu"
     (for [opt menu-options]
-      (dom/div #js {:onClick (partial nav-fn opt)
-                    :className ""}
+      (dom/div #js {:onClick   (partial nav-fn opt)
+                    :className ""
+                    :key       opt}
         (dom/a nil
           (kw->menu opt))))))
 
 (defn logged-in-app [c {:keys [app/builds app/active-build] :as props}]
   (let [add-build #(om/transact! c `[(build/create) :app/builds])
-        navigate  #(om/transact! c `[(app/navigate {:route ~%})])]
+        navigate  #(om/transact! c `[(app/navigate {:route ~%})])
+        save      #(om/transact! c `[(build/save {:build ~%})])]
     (dom/div #js {:className "app-window"}
       (topbar)
       (dom/div #js {:className "app-window-container"}
@@ -54,7 +57,9 @@
           (build-list builds))
         (when active-build
           (dom/div #js {:className "app-panel app-secondary"}
-            (build-editor active-build)))))))
+            (build-editor
+              (om/computed active-build
+                {:save save}))))))))
 
 (defui App
   static om/IQuery
@@ -65,6 +70,7 @@
      :app/auth-url])
   Object
   (render [this]
+    (log/debug "rendering")
     (let [{:keys [app/user app/auth-url] :as props} (om/props this)]
       (if user
         (logged-in-app this props)

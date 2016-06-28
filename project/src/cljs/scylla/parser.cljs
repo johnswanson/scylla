@@ -20,7 +20,6 @@
 (defmethod read :app/builds
   [{:keys [state] :as env} key params]
   (let [st @state]
-    (pr st)
     (if-let [[_ value] (find st key)]
       {:value (mapv #(get-in st %) value)
        :remote true}
@@ -41,8 +40,13 @@
 (defmethod mutate 'build/edit
   [{:keys [state] :as env} k {:keys [path value]}]
   {:value {:keys [:app/builds]}
-   :remote true
    :action #(swap! state assoc-in path value)})
+
+(defmethod mutate 'build/save
+  [{:keys [state] :as env} k {:keys [build]}]
+  {:value {:keys [:app/active-build]}
+   :remote true
+   :action #(swap! state dissoc :app/active-build)})
 
 (defmethod mutate 'app/open-build-editor
   [{:keys [state] :as env} key {:keys [build]}]

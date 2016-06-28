@@ -22,10 +22,11 @@
                             :value ~(.. e -target -value)})])
            (stop-editing c))
     nil))
+
 (defn start-editing [c v]
   (om/update-state! c assoc
     :needs-focus true
-    :edit-text v))
+    :edit-text (or v "")))
 
 (defn Editor [property]
   (ui
@@ -41,7 +42,7 @@
         (om/update-state! this assoc :needs-focus nil)))
     (render [this]
       (let [props (om/props this)
-            v     (get props property)]
+            v     (get props property "")]
         (dom/div nil
           (dom/span #js {:className "edit-name"
                          :onClick #(start-editing this v)}
@@ -58,7 +59,14 @@
                            :className "edit-value edit-display-value"}
               (apply str [\" v \"]))))))))
 
-(def name-editor (om/factory (Editor :build/name)))
+(def factories
+  [[:build/name (om/factory (Editor :build/name) {:keyfn (constantly "name")})]
+   [:build/image (om/factory (Editor :build/image) {:keyfn (constantly "image")})]
+   [:build/command (om/factory (Editor :build/command) {:keyfn (constantly "command")})]
+   [:build/env (om/factory (Editor :build/env) {:keyfn (constantly "env")})]])
+
+(defn save [c build]
+  (om/transact! c `[(build/save {:build ~build}) :app/active-build]))
 
 (defui BuildEditor
   static om/Ident
@@ -66,13 +74,16 @@
     [:build/by-id (:db/id props)])
   static om/IQuery
   (query [this]
-    [:db/id :build/name])
+    [:db/id :build/name :build/image :build/command :build/env])
   Object
   (render [this]
-    (let [{:keys [db/id build/name]} (om/props this)]
+    (let [{:keys [db/id] :as props} (om/props this)
+          build (select-keys props [:db/id :build/name :build/image :build/command :build/env])]
       (dom/div #js {:className "edit-container"}
-        (dom/div nil
-          (dom/h1 nil "Build Editor")
-          (name-editor {:build/name name :db/id id}))))))
+        (dom/h1 nil "Build Editor")
+        (for [[k editor] factories]
+          (editor {:db/id id
+                   k (get props k)}))
+        (dom/button #js {:onClick #((:save (om/get-computed this)) build)} "Save")))))
 
 (def build-editor (om/factory BuildEditor))
