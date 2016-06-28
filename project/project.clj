@@ -10,7 +10,7 @@
                                   [reloaded.repl "0.2.1"]]}}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/clojurescript "1.7.228"]
-                 [org.omcljs/om "1.0.0-alpha34"]
+                 [org.omcljs/om "1.0.0-alpha37"]
                  [org.clojure/core.async "0.2.374"]
                  [com.datomic/datomic-pro "0.9.5359"]
                  [org.clojars.jds02006/kubernetes-api "0.1.1-SNAPSHOT"]
