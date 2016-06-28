@@ -1,44 +1,64 @@
 (ns scylla.components.build-editor
-  (:require [om.next :as om :refer-macros [defui]]
-            [om.dom :as dom]))
+  (:require [om.next :as om :refer-macros [ui defui]]
+            [om.dom :as dom]
+            [taoensso.timbre :as log]
+            [clojure.string :as str]))
 
 (defui BuildSpec
   static om/IQuery
   (query [this]
     [:build-spec/image :build-spec/command :build-spec/env]))
 
+(defn stop-editing [c] (om/update-state! c dissoc :edit-text))
+
+(defn on-change [c e]
+  (om/update-state! c assoc :edit-text (.. e -target -value)))
+
 (defn key-down [c property e]
   (case (.-keyCode e)
-    27 (om/update-state! c dissoc :editing? :edit-text)
-    13 (do (om/transact! c `[(build/edit {:path [:build/by-id ~(:db/id (om/props c)) ~property]
-                                          :value ~(.. e -target -value)})])
-           (om/update-state! c dissoc :editing?))
+    27 (stop-editing c)
+    13 (do (om/transact! (om/parent c)
+             `[(build/edit {:path [:build/by-id ~(:db/id (om/props c)) ~property]
+                            :value ~(.. e -target -value)})])
+           (stop-editing c))
     nil))
+(defn start-editing [c v]
+  (om/update-state! c assoc
+    :needs-focus true
+    :edit-text v))
 
-(defn edit [c property v]
-  (om/update-state! c assoc :editing? true :edit-text v :needs-focus (pr-str property)))
+(defn Editor [property]
+  (ui
+    Object
+    (componentDidUpdate [this prev-props prev-state]
+      (when (and
+              (om/get-state this :needs-focus)
+              (om/get-state this :edit-text))
+        (let [node (dom/node this "edit-input")
+              len (.. node -value -length)]
+          (.focus node)
+          (.setSelectionRange node 0 len))
+        (om/update-state! this assoc :needs-focus nil)))
+    (render [this]
+      (let [props (om/props this)
+            v     (get props property)]
+        (dom/div nil
+          (dom/span #js {:className "edit-name"
+                         :onClick #(start-editing this v)}
+            (str/capitalize (name property)))
+          (if (om/get-state this :edit-text)
+            (dom/input #js {:type      "text"
+                            :className "edit-value edit-edit-value"
+                            :ref       "edit-input"
+                            :value     (om/get-state this :edit-text)
+                            :onChange  #(on-change this %)
+                            :onKeyDown #(key-down this property %)
+                            :onBlur    #(stop-editing this)})
+            (dom/span #js {:onClick #(start-editing this v)
+                           :className "edit-value edit-display-value"}
+              (apply str [\" v \"]))))))))
 
-(defn display [c property]
-  (let [v (get (om/props c) property)]
-    (dom/span #js {:onClick #(edit c property v)
-                   :className "edit-value edit-display-value"}
-      v)))
-
-(defn editing [c property]
-  (dom/input #js {:type      "text"
-                  :className "edit-value edit-display-value"
-                  :ref       (pr-str property)
-                  :onChange  #(om/update-state! c assoc :edit-text (.. % -target -value))
-                  :value     (:edit-text (om/get-state c))
-                  :onKeyDown #(key-down c property %)}))
-
-(defn editor [c property]
-  (dom/div nil
-    (dom/span nil
-      (name property))
-    (if (:editing? (om/get-state c))
-      (editing c property)
-      (display c property))))
+(def name-editor (om/factory (Editor :build/name)))
 
 (defui BuildEditor
   static om/Ident
@@ -46,21 +66,13 @@
     [:build/by-id (:db/id props)])
   static om/IQuery
   (query [this]
-    [:db/id :build/name {:build/specs (om/get-query BuildSpec)}])
+    [:db/id :build/name])
   Object
-  (componentDidUpdate [this prev-props prev-state]
-    (when-let [focus (om/get-state this :needs-focus)]
-      (js/console.log "focusing")
-      (let [node (dom/node this focus)
-            len (.. node -value -length)]
-        (.focus node)
-        (.setSelectionRange node 0 len))
-      (om/update-state! this assoc :needs-focus nil)))
   (render [this]
     (let [{:keys [db/id build/name]} (om/props this)]
       (dom/div #js {:className "edit-container"}
         (dom/div nil
           (dom/h1 nil "Build Editor")
-          (editor this :build/name))))))
+          (name-editor {:build/name name :db/id id}))))))
 
 (def build-editor (om/factory BuildEditor))

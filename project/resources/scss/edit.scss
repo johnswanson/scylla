@@ -3,14 +3,20 @@
 		margin: auto;
 		background-color: white;
 }
+
+.edit-name {
+		padding: 100px;
+}
+
 .edit-value {
-		padding-left: 100px;
+		right: 0px;
+}
+
+.edit-display-value {
+		background-color: lightblue;
 }
 
 .edit-edit-value {
-		border-color: black;
+		width: 200px;
 }
 
-.edit-label {
-
-}
