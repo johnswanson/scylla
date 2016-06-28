@@ -12,7 +12,8 @@
   Object
   (render [this]
     (let [{:keys [db/id build/name build/specs]} (om/props this)]
-      (dom/div #js {:onClick #(om/transact! this `[(build/activate {:build [:build/by-id ~id]})
+      (dom/div #js {:className "build-list-item"
+                    :onClick #(om/transact! this `[(app/open-build-editor {:build [:build/by-id ~id]})
                                                    :app/active-build])}
         "Build"
         name))))

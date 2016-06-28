@@ -39,12 +39,22 @@
    :remote true})
 
 (defmethod mutate 'build/edit
-  [{:keys [state] :as env} k {:keys [path value key]}]
+  [{:keys [state] :as env} k {:keys [path value]}]
   {:value {:keys [:app/builds]}
-   :remote (= key "Enter")
+   :remote true
    :action #(swap! state assoc-in path value)})
 
-(defmethod mutate 'build/activate
+(defmethod mutate 'app/open-build-editor
   [{:keys [state] :as env} key {:keys [build]}]
   {:value {:keys [:app/active-build]}
    :action #(swap! state assoc :app/active-build build)})
+
+(defmethod mutate 'app/close-build-editor
+  [{:keys [state] :as env} key _]
+  {:value {:keys [:app/active-build]}
+   :action #(swap! state dissoc :app/active-build)})
+
+(defmethod mutate 'app/navigate
+  [{:keys [state] :as env} key {:keys [match]}]
+  {:value {:keys [:app/path]}
+   :action #(js/console.log (pr-str match))})

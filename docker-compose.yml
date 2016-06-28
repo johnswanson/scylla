@@ -1,5 +1,11 @@
 version: '2'
 services:
+  logspout:
+    image: gliderlabs/logspout:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8000:80"
   app:
     build: .
     volumes:
