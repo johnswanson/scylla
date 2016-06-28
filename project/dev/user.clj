@@ -35,19 +35,23 @@
    [{:id           "cards"
      :figwheel     {:devcards true}
      :source-paths ["src/cljs"]
-     :compiler     {:main       'cards.core
-                    :asset-path "js/compiled_cards"
-                    :output-to  "resources/public/js/compiled_cards/app.js"
-                    :output-dir "resources/public/js/compiled_cards"
-                    :verbose    true}}
+     :compiler     {:main                 'cards.core
+                    :asset-path           "js/compiled_cards"
+                    :output-to            "resources/public/js/compiled_cards/app.js"
+                    :output-dir           "resources/public/js/compiled_cards"
+                    :verbose              true
+                    :source-map           true
+                    :source-map-timestamp true}}
     {:id           "dev"
      :figwheel     true
      :source-paths ["src/cljs"]
-     :compiler     {:main       'scylla.app
-                    :asset-path "js/compiled"
-                    :output-to  "resources/public/js/compiled/app.js"
-                    :output-dir "resources/public/js/compiled"
-                    :verbose    true}}]})
+     :compiler     {:main                 'scylla.app
+                    :asset-path           "js/compiled"
+                    :output-to            "resources/public/js/compiled/app.js"
+                    :output-dir           "resources/public/js/compiled"
+                    :verbose              true
+                    :source-map           true
+                    :source-map-timestamp true}}]})
 
 (defrecord Figwheel [config]
   component/Lifecycle
