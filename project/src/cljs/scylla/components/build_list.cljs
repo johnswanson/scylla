@@ -17,8 +17,10 @@
                                 (om/transact! this `[(app/open-build-editor {:build [:build/by-id ~id]})
                                                      :app/active-build])
                                 (.stopPropagation %))}
-        "Build"
-        name))))
+        (if (and name (> (count name) 0))
+          name
+          (dom/span #js {:className "uv-italicized"}
+            "unnamed build"))))))
 
 (def build-list-item (om/factory BuildListItem))
 
