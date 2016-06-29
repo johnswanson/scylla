@@ -47,7 +47,7 @@
         ["session" #(assoc-in (response (:session %))
                               [:headers "Content-Type"]
                               "text/plain")]
-        [""         (bidi.ring/->Redirect 307 "/index.html")]
+        [""         (constantly {:status 307 :headers {"location" "/index.html"}})]
         [""         (resources-maybe {:prefix "public/"})]]])
 
 (defn wrap-sente [handler sente]
