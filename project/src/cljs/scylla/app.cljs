@@ -40,16 +40,16 @@
  components-app/App
  (gdom/getElement "app"))
 
+(go-loop []
+  (let [v (<! send-chan)]
+    (when v
+      (let [[remote cb] v]
+        (chsk-send! [:app/remote remote] 5000 cb))
+      (recur))))
+
 ;; sente event handlers (no server-side push handling yet)
 
 (defmulti event-msg-handler :id)
-(defmethod event-msg-handler :chsk/state [{:keys [?data] :as ev}]
-  (when (:first-open? (second ?data))
-    (go-loop []
-      (when-let [v (<! send-chan)]
-        (let [[remote cb] v]
-          (chsk-send! [:app/remote remote] 5000 cb))
-        (recur)))))
 
 (defmethod event-msg-handler :default [ev-msg] :nothing)
 
