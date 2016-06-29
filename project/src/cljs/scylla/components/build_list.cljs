@@ -13,8 +13,10 @@
   (render [this]
     (let [{:keys [db/id build/name build/specs]} (om/props this)]
       (dom/div #js {:className "build-list-item"
-                    :onClick #(om/transact! this `[(app/open-build-editor {:build [:build/by-id ~id]})
-                                                   :app/active-build])}
+                    :onClick #(do
+                                (om/transact! this `[(app/open-build-editor {:build [:build/by-id ~id]})
+                                                     :app/active-build])
+                                (.stopPropagation %))}
         "Build"
         name))))
 

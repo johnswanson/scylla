@@ -65,9 +65,6 @@
    [:build/command (om/factory (Editor :build/command) {:keyfn (constantly "command")})]
    [:build/env (om/factory (Editor :build/env) {:keyfn (constantly "env")})]])
 
-(defn save [c build]
-  (om/transact! c `[(build/save {:build ~build}) :app/active-build]))
-
 (defui BuildEditor
   static om/Ident
   (ident [this props]
@@ -84,6 +81,7 @@
         (for [[k editor] factories]
           (editor {:db/id id
                    k (get props k)}))
-        (dom/button #js {:onClick #((:save (om/get-computed this)) build)} "Save")))))
+        (dom/div nil
+          (dom/a #js {:onClick #((:close (om/get-computed this)))} "X"))))))
 
 (def build-editor (om/factory BuildEditor))

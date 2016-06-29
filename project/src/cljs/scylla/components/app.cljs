@@ -46,20 +46,21 @@
 (defn logged-in-app [c {:keys [app/builds app/active-build] :as props}]
   (let [add-build #(om/transact! c `[(build/create) :app/builds])
         navigate  #(om/transact! c `[(app/navigate {:route ~%})])
-        save      #(om/transact! c `[(build/save {:build ~%})])]
+        close     #(om/transact! c `[(app/close-build)])]
     (dom/div #js {:className "app-window"}
       (topbar)
       (dom/div #js {:className "app-window-container"}
         (dom/div #js {:className "app-panel app-menu"}
           (menu-panel navigate))
-        (dom/div #js {:className "app-panel app-primary"}
+        (dom/div #js {:className "app-panel app-primary"
+                      :onClick   close}
           (create-build-button add-build)
           (build-list builds))
         (when active-build
           (dom/div #js {:className "app-panel app-secondary"}
             (build-editor
               (om/computed active-build
-                {:save save}))))))))
+                           {:close close}))))))))
 
 (defui App
   static om/IQuery

@@ -40,12 +40,12 @@
 (defmethod mutate 'build/edit
   [{:keys [state] :as env} k {:keys [path value]}]
   {:value {:keys [:app/builds]}
+   :remote true
    :action #(swap! state assoc-in path value)})
 
-(defmethod mutate 'build/save
+(defmethod mutate 'app/close-build
   [{:keys [state] :as env} k {:keys [build]}]
   {:value {:keys [:app/active-build]}
-   :remote true
    :action #(swap! state dissoc :app/active-build)})
 
 (defmethod mutate 'app/open-build-editor

@@ -144,6 +144,17 @@
   [{:keys [ring-req]} _ _]
   (log/debugf "delete-build %s" ring-req))
 
+(defmethod mutatef 'build/edit
+  [{:keys [ring-req]} _ {:keys [path value]}]
+  (let [[_ id property] path]
+    {:action (fn []
+               (-> (d/transact (:db-conn ring-req)
+                               [{:db/id   id
+                                 property value}])
+                   (deref)
+                   (dissoc :db-before :db-after :tx-data)))
+     :value {:keys [path]}}))
+
 (defmethod mutatef 'build/save
   [{:keys [ring-req]} _ {:keys [build]}]
   (let [{:keys [db/id] :as build} build]
