@@ -33,4 +33,6 @@
                  [com.stuartsierra/component "0.3.1"]
                  [com.taoensso/sente "1.9.0-beta3"]
                  [com.taoensso/timbre "4.3.1"]
-                 [datomic-schema "1.3.0"]])
+                 [datomic-schema "1.3.0"]
+                 [hiccup "1.0.5"]
+                 [kibu/pushy "0.3.6"]])

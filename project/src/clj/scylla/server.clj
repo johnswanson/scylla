@@ -13,7 +13,8 @@
             [scylla.github :as github]
             [scylla.datomic :as datomic]
             [datomic.api :as d]
-            [om.next.server :as om]))
+            [om.next.server :as om]
+            [hiccup.page :refer [html5]]))
 
 (defn response [body & [status]]
   {:status  (or status 200)
@@ -24,7 +25,7 @@
 
 (defn logout [{:keys [user] :as req}]
   {:status 307
-   :headers {"Location" "/index.html"}
+   :headers {"Location" "/"}
    :body ""
    :session nil})
 
@@ -36,19 +37,33 @@
         user         (github/user access-token)]
     (datomic/add-or-update-user! (:db-conn req) user access-token)
     {:status  307
-     :headers {"Location" "/index.html"}
+     :headers {"Location" "/"}
      :body    ""
      :session (assoc (:session req) :uid (:login user))}))
 
-(defn my-routes [post-fn get-fn]
-  ["/" [["callback" callback]
-        ["logout" logout]
-        ["chsk" {:get get-fn :post post-fn}]
-        ["session" #(assoc-in (response (:session %))
-                              [:headers "Content-Type"]
-                              "text/plain")]
-        [""         (constantly {:status 307 :headers {"location" "/index.html"}})]
-        [""         (resources-maybe {:prefix "public/"})]]])
+(defn index [req]
+  {:status 200
+   :headers {"Content-Type" "text/html"}
+   :body (html5
+          [:html {:lang "en"}
+           [:head
+            [:meta {:charset "utf-8"}]
+            [:link {:href "http://fonts.googleapis.com/css?family=Roboto:400,300,200"
+                    :rel "stylesheet"
+                    :type "text/css"}]
+            [:link {:rel "stylesheet" :href "/css/app.css"}]]
+           [:body
+            [:div#app]
+            [:script {:src "/js/compiled/app.js"}]
+            [:script {:src "https://use.fontawesome.com/efa7507d6f.js"}]]])})
+
+(def my-routes
+  ["/" [["callback" :callback]
+        ["logout" :logout]
+        ["chsk" {:get :get-chsk :post :post-chsk}]
+        ["builds" [[true :index]]]
+        ["settings" [[true :index]]]
+        ["" :index]]])
 
 (defn wrap-sente [handler sente]
   (fn [req]
@@ -69,11 +84,27 @@
   (start [component]
     (let [datomic (:datomic component)
           {:keys [sente server-routes]} (:sente component)
-          {:keys [ajax-post-fn ajax-get-or-ws-handshake-fn]} server-routes]
+          {:keys [ajax-post-fn ajax-get-or-ws-handshake-fn]} server-routes
+          handlers {:callback callback
+                    :logout logout
+                    :get-chsk ajax-get-or-ws-handshake-fn
+                    :post-chsk ajax-post-fn
+                    :index index}
+          make-handler (fn [handler-fn]
+                         (fn [{:keys [uri path-info] :as req}]
+                           (let [path (or path-info uri)
+                                 {:keys [route-params]
+                                  :as match-context
+                                  handler-kw :handler} (bidi/match-route* my-routes path req)
+                                 handler (get handlers handler-kw)]
+                             (when handler
+                               ((handler-fn handler)
+                                (-> req
+                                    (update-in [:params] merge route-params)
+                                    (update-in [:route-params] merge route-params)))))))]
       (assoc component :server (org.httpkit.server/run-server
-                                (-> (my-routes ajax-post-fn
-                                               ajax-get-or-ws-handshake-fn)
-                                    (bidi.ring/make-handler)
+                                (-> identity
+                                    (make-handler)
                                     (wrap-user)
                                     (wrap-datomic datomic)
                                     (wrap-defaults site-defaults)

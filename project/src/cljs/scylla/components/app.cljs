@@ -1,10 +1,10 @@
 (ns scylla.components.app
   (:require [om.next :as om :refer-macros [defui]]
             [om.dom :as dom]
+            [scylla.routes :as routes]
             [scylla.components.build-list :refer [build-list BuildListItem]]
             [scylla.components.build-editor :refer [build-editor BuildEditor]]
-            [clojure.string :as str]
-            [taoensso.timbre :as log]))
+            [clojure.string :as str]))
 
 (defn flex-container [& {:keys [left right]}]
   (dom/div #js {:className "uv-flex-container"}
@@ -29,38 +29,33 @@
     (dom/i #js {:className "fa fa-plus"})
     "Create Build"))
 
-(def menu-options [:builds :credentials])
+(def menu-options [:builds :settings])
 (defn kw->menu [kw] (-> kw name (str/replace #"-" " ") str/capitalize))
 (defn menu->kw [menu] (-> menu str/lower-case (str/replace #" " "-") keyword))
 
-(defn menu-panel [nav-fn]
+(defn menu-panel []
   (dom/div nil
     "Menu"
     (for [opt menu-options]
-      (dom/div #js {:onClick   (partial nav-fn opt)
-                    :className ""
-                    :key       opt}
-        (dom/a nil
-          (kw->menu opt))))))
+      (dom/div nil
+        (dom/a #js {:href (routes/path-for opt)
+                    :key opt}
+               (kw->menu opt))))))
 
 (defn logged-in-app [c {:keys [app/builds app/active-build] :as props}]
-  (let [add-build #(om/transact! c `[(build/create) :app/builds])
-        navigate  #(om/transact! c `[(app/navigate {:route ~%})])
-        close     #(om/transact! c `[(app/close-build)])]
+  (let [add-build #(om/transact! c `[(build/create) :app/builds])]
     (dom/div #js {:className "app-window"}
       (topbar)
       (dom/div #js {:className "app-window-container"}
         (dom/div #js {:className "app-panel app-menu"}
-          (menu-panel navigate))
+          (menu-panel))
         (dom/div #js {:className "app-panel app-primary"
-                      :onClick   close}
+                      :onClick   #(routes/navigate! :builds)}
           (create-build-button add-build)
           (build-list builds))
         (when active-build
           (dom/div #js {:className "app-panel app-secondary"}
-            (build-editor
-              (om/computed active-build
-                           {:close close}))))))))
+            (build-editor active-build)))))))
 
 (defui App
   static om/IQuery
@@ -70,8 +65,17 @@
      {:app/active-build (om/get-query BuildEditor)}
      :app/auth-url])
   Object
+  (componentWillMount [this]
+    (routes/register-handler! :builds
+                              (fn []
+                                (om/transact! this `[(app/close-build)])))
+    (routes/register-handler! :build
+                              (fn [{:keys [id]}]
+                                (om/transact! this `[(app/open-build-editor {:build [:build/by-id ~(js/parseInt id)]})
+                                                     :app/active-build]))))
+  (componentDidMount [this]
+    (routes/start!))
   (render [this]
-    (log/debug "rendering")
     (let [{:keys [app/user app/auth-url] :as props} (om/props this)]
       (if user
         (logged-in-app this props)
