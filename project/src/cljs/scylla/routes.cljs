@@ -11,14 +11,12 @@
   (swap! handlers assoc k fn))
 
 (defn call! [{:keys [route-params handler]}]
-  (log/debugf "call! %s, current state: %s" handler @handlers)
   (when-let [handler-fn (get @handlers handler)]
     (if route-params
       (handler-fn route-params)
       (handler-fn))))
 
 (defn set-page! [match]
-  (log/debugf "setting page: %s" (pr-str match))
   (call! match))
 
 (def routes ["/" {"builds/" {""    :builds
