@@ -1,25 +1,14 @@
 (ns scylla.server
-  (:require [clojure.walk :as walk]
-            [org.httpkit.server]
-            [bidi.ring :refer [resources-maybe]]
+  (:require [org.httpkit.server]
             [bidi.bidi :as bidi]
             [com.stuartsierra.component :as component]
             [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
-            [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
             [taoensso.timbre :as log]
-            [ring.util.response :as res]
-            [cheshire.core :as json]
-            [environ.core :refer [env]]
             [scylla.github :as github]
             [scylla.datomic :as datomic]
             [datomic.api :as d]
             [om.next.server :as om]
             [hiccup.page :refer [html5]]))
-
-(defn response [body & [status]]
-  {:status  (or status 200)
-   :headers {"Content-Type" "application/edn"}
-   :body    (pr-str body)})
 
 (defn persist! [& args] nil)
 
@@ -108,7 +97,6 @@
                                     (wrap-user)
                                     (wrap-datomic datomic)
                                     (wrap-defaults site-defaults)
-                                    (wrap-anti-forgery)
                                     (wrap-sente sente))
                                 config))))
   (stop [component]
