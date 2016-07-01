@@ -15,15 +15,6 @@
 (defn on-change [c e]
   (om/update-state! c assoc :edit-text (.. e -target -value)))
 
-(defn key-down [c property e]
-  (case (.-keyCode e)
-    27 (stop-editing c)
-    13 (do (om/transact! (om/parent c)
-             `[(build/edit {:path [:build/by-id ~(:db/id (om/props c)) ~property]
-                            :value ~(.. e -target -value)})])
-           (stop-editing c))
-    nil))
-
 (defn start-editing [c v]
   (om/update-state! c assoc
     :needs-focus true
@@ -42,8 +33,8 @@
           (.setSelectionRange node 0 len))
         (om/update-state! this assoc :needs-focus nil)))
     (render [this]
-      (let [props (om/props this)
-            v     (get props property "")]
+      (let [v              (get (om/props this) property "")
+            {:keys [save]} (om/get-computed this)]
         (dom/div nil
           (dom/span #js {:className "edit-name"
                          :onClick #(start-editing this v)}
@@ -54,17 +45,23 @@
                             :ref       "edit-input"
                             :value     (om/get-state this :edit-text)
                             :onChange  #(on-change this %)
-                            :onKeyDown #(key-down this property %)
+                            :onKeyDown #(case (.-keyCode %)
+                                          27 (stop-editing this)
+                                          13 (do (save (.. % -target -value))
+                                                 (stop-editing this))
+                                          nil)
                             :onBlur    #(stop-editing this)})
             (dom/span #js {:onClick #(start-editing this v)
                            :className "edit-value edit-display-value"}
               (apply str [\" v \"]))))))))
 
 (def factories
-  [[:build/name (om/factory (Editor :build/name) {:keyfn (constantly "name")})]
-   [:build/image (om/factory (Editor :build/image) {:keyfn (constantly "image")})]
-   [:build/command (om/factory (Editor :build/command) {:keyfn (constantly "command")})]
-   [:build/env (om/factory (Editor :build/env) {:keyfn (constantly "env")})]])
+  [[:build/name (om/factory (Editor :build/name) {:keyfn (constantly "name")})]])
+
+(defn save [c property value]
+  (om/transact! c
+                `[(build/edit {:path [:build/by-id ~(:db/id (om/props c)) ~property]
+                               :value ~value})]))
 
 (defui BuildEditor
   static om/Ident
@@ -80,8 +77,8 @@
       (dom/div #js {:className "edit-container"}
         (dom/h1 nil "Build Editor")
         (for [[k editor] factories]
-          (editor {:db/id id
-                   k (get props k)}))
+          (editor (om/computed {:db/id id k (get props k)}
+                               {:save (partial save this k)})))
         (dom/div nil
           (dom/a #js {:href (routes/path-for :builds)} "X"))))))
 
