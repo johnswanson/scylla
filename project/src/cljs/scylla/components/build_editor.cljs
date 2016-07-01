@@ -2,7 +2,8 @@
   (:require [om.next :as om :refer-macros [ui defui]]
             [om.dom :as dom]
             [taoensso.timbre :as log]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [scylla.routes :as routes]))
 
 (defui BuildSpec
   static om/IQuery
@@ -82,6 +83,6 @@
           (editor {:db/id id
                    k (get props k)}))
         (dom/div nil
-          (dom/a #js {:onClick #((:close (om/get-computed this)))} "X"))))))
+          (dom/a #js {:href (routes/path-for :builds)} "X"))))))
 
 (def build-editor (om/factory BuildEditor))
