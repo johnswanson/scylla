@@ -5,13 +5,9 @@
             [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
             [taoensso.timbre :as log]
             [datomic.api :as d]
-            [om.next.server :as om]
             [hiccup.page :refer [html5]]
             [scylla.github :as github]
-            [scylla.datomic :as datomic]
-            [scylla.parser :as parser]))
-
-(defn persist! [& args] nil)
+            [scylla.datomic :as datomic]))
 
 (defn logout [{:keys [user] :as req}]
   {:status 307
@@ -69,32 +65,35 @@
   (fn [req]
     (handler (assoc req :db-conn (:connection datomic)))))
 
+(defn make-handler [handler-fn my-routes handlers]
+  (fn [{:keys [uri path-info] :as req}]
+    (let [path (or path-info uri)
+          {:keys [route-params]
+           :as match-context
+           handler-kw :handler} (bidi/match-route* my-routes path req)
+          handler (get handlers handler-kw)]
+      (when handler
+        ((handler-fn handler)
+         (-> req
+             (update-in [:params] merge route-params)
+             (update-in [:route-params] merge route-params)))))))
+
+(def handlers {:callback callback
+               :logout   logout
+               :index    index})
+
 (defrecord ServerComponent [config]
   component/Lifecycle
   (start [component]
     (let [datomic (:datomic component)
           {:keys [sente server-routes]} (:sente component)
           {:keys [ajax-post-fn ajax-get-or-ws-handshake-fn]} server-routes
-          handlers {:callback callback
-                    :logout logout
-                    :get-chsk ajax-get-or-ws-handshake-fn
-                    :post-chsk ajax-post-fn
-                    :index index}
-          make-handler (fn [handler-fn]
-                         (fn [{:keys [uri path-info] :as req}]
-                           (let [path (or path-info uri)
-                                 {:keys [route-params]
-                                  :as match-context
-                                  handler-kw :handler} (bidi/match-route* my-routes path req)
-                                 handler (get handlers handler-kw)]
-                             (when handler
-                               ((handler-fn handler)
-                                (-> req
-                                    (update-in [:params] merge route-params)
-                                    (update-in [:route-params] merge route-params)))))))]
+          sente-handlers (assoc handlers
+                                :get-chsk ajax-get-or-ws-handshake-fn
+                                :post-chsk ajax-post-fn)]
       (assoc component :server (org.httpkit.server/run-server
                                 (-> identity
-                                    (make-handler)
+                                    (make-handler my-routes sente-handlers)
                                     (wrap-user)
                                     (wrap-datomic datomic)
                                     (wrap-defaults site-defaults)
@@ -107,21 +106,3 @@
 
 (defn new-server [config]
   (map->ServerComponent {:config config}))
-
-(defmulti event-msg-handler :id)
-
-(defmethod event-msg-handler :default
-  [{:as ev-msg :keys [event id ?data ring-req ?reply-fn send-fn]}]
-  (let [session (:session ring-req)
-        uid     (:uid session)]
-    (when ?reply-fn
-      (?reply-fn {:unmatched-event-as-echoed-from-server event}))))
-
-(defmethod event-msg-handler :app/remote
-  [{:as ev-msg :keys [event id ?data ring-req ?reply-fn send-fn]}]
-  (let [data ((om/parser {:read parser/readf :mutate parser/mutatef})
-              {:ring-req ring-req}
-              ?data)]
-    (when ?reply-fn
-      (?reply-fn data))))
-
