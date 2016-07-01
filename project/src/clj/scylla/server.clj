@@ -4,11 +4,12 @@
             [com.stuartsierra.component :as component]
             [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
             [taoensso.timbre :as log]
-            [scylla.github :as github]
-            [scylla.datomic :as datomic]
             [datomic.api :as d]
             [om.next.server :as om]
-            [hiccup.page :refer [html5]]))
+            [hiccup.page :refer [html5]]
+            [scylla.github :as github]
+            [scylla.datomic :as datomic]
+            [scylla.parser :as parser]))
 
 (defn persist! [& args] nil)
 
@@ -116,77 +117,9 @@
     (when ?reply-fn
       (?reply-fn {:unmatched-event-as-echoed-from-server event}))))
 
-(defmulti readf (fn [_ x _] x))
-(defmulti mutatef (fn [_ x _] x))
-
-(defmethod readf :default
-  [_ k _]
-  {:value {:error {:no-handler-for-read-key k}}})
-
-(defmethod readf :user/username
-  [{:keys [user]} _ _]
-  {:value (get user :user/username)})
-
-(defmethod readf :app/builds
-  [{{:keys [user db-conn]} :ring-req} _ _]
-  {:value (if user
-            (datomic/builds db-conn user)
-            nil)})
-
-(defmethod readf :app/user
-  [{:keys [parser query ring-req] :as env} _ _]
-  (if-let [[_ user] (find ring-req :user)]
-    {:value (parser (assoc env :user user) query)}
-    {:value nil}))
-
-(defmethod readf :app/auth-url
-  [_ _ _]
-  {:value github/auth-url})
-
-(defmethod mutatef :default
-  [_ k _]
-  {:action {:error {:no-handler-for-mutate-key k}}})
-
-(defmethod mutatef 'build/create
-  [{:keys [ring-req]} _ _]
-  {:value {:keys [:app/builds]}
-   :action (fn []
-             (-> (d/transact (:db-conn ring-req)
-                             [{:db/id       (get-in ring-req [:user :db/id])
-                               :user/builds #db/id[:db.part/user -1]}
-                              {:db/id      #db/id[:db.part/user -1]
-                               :build/name ""}])
-                 (deref)
-                 (dissoc :db-before :db-after :tx-data)))})
-
-(defmethod mutatef 'user/delete-build
-  [{:keys [ring-req]} _ _]
-  (log/debugf "delete-build %s" ring-req))
-
-(defmethod mutatef 'build/edit
-  [{:keys [ring-req]} _ {:keys [path value]}]
-  (let [[_ id property] path]
-    {:action (fn []
-               (-> (d/transact (:db-conn ring-req)
-                               [{:db/id   id
-                                 property value}])
-                   (deref)
-                   (dissoc :db-before :db-after :tx-data)))
-     :value {:keys [path]}}))
-
-(defmethod mutatef 'build/save
-  [{:keys [ring-req]} _ {:keys [build]}]
-  (let [{:keys [db/id] :as build} build]
-    {:action (fn []
-               (-> (d/transact (:db-conn ring-req)
-                               [build])
-                   (deref)
-                   (dissoc :db-before :db-after :tx-data)))
-     :value {:keys [[:build/by-id id]]}}))
-
 (defmethod event-msg-handler :app/remote
   [{:as ev-msg :keys [event id ?data ring-req ?reply-fn send-fn]}]
-  (let [data ((om/parser {:read readf :mutate mutatef})
+  (let [data ((om/parser {:read parser/readf :mutate parser/mutatef})
               {:ring-req ring-req}
               ?data)]
     (when ?reply-fn

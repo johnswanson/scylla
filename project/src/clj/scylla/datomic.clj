@@ -31,26 +31,12 @@
    :db/id (d/tempid :db.part/user)})
 
 (defn add-or-update-user! [conn gh-user access-token]
-  (log/debugf "tx: %s" (pr-str (-> gh-user (user) (assoc :user/access-token access-token))))
   (d/transact conn [(-> gh-user
                         (user)
                         (assoc :user/access-token access-token))]))
 
 (defn get-user [conn username]
   (d/pull (d/db conn) '[*] [:user/username username]))
-
-(defn builds
-  ([conn user] (builds conn user nil))
-  ([conn user selector] (builds conn user selector nil))
-  ([conn user selector {:keys [filter as-of]}]
-   (let [db (cond-> (d/db conn)
-              as-of (d/as-of as-of))
-         q '[:find [(pull ?eid selector) ...]
-             :in $ ?uid selector
-             :where
-             [?eid :build/name]
-             [?uid :user/builds ?eid]]]
-     (d/q q db (:db/id user) (or selector '[*])))))
 
 (defrecord DatomicComponent [config]
   component/Lifecycle
